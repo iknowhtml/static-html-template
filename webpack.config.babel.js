@@ -39,7 +39,7 @@ const base = {
 export default ({ NODE_ENV }) => {
   const common = [
     htmlWebpack({
-      title: "Aki Gao's Resume",
+      title: "CSS Playground",
       template: `${paths.src}/index.ejs`,
       NODE_ENV
     }), 
