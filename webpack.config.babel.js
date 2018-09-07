@@ -4,7 +4,7 @@ import partial from './webpack/partials/partial';
 
 import { postCSS } from './webpack/partials/modules';
 import { devServer } from './webpack/partials/configurations';
-import {htmlWebpack, hotModuleReplacement} from './webpack/partials/plugins';
+import { htmlWebpack, hotModuleReplacement } from './webpack/partials/plugins';
 
 import webpackConfiguration from './webpack/webpackConfiguration';
 
@@ -12,7 +12,7 @@ let server;
 
 function reloadHtmlPlugin() {
   const cache = {};
-  const plugin = {name: 'CustomHtmlReloadPlugin'};
+  const plugin = { name: 'CustomHtmlReloadPlugin' };
   this.hooks.compilation.tap(plugin, compilation => {
     compilation.hooks.htmlWebpackPluginAfterEmit.tap(plugin, data => {
       const orig = cache[data.outputName];
@@ -20,30 +20,35 @@ function reloadHtmlPlugin() {
       // plugin seems to emit on any unrelated change?
       if (orig && orig !== html) {
         server.sockWrite(server.sockets, 'content-changed');
-      };
-      cache[data.outputName] = html
+      }
+      cache[data.outputName] = html;
     });
   });
-};
+}
 
-const reloadHtml = (config) => partial({plugin: reloadHtmlPlugin}, config);
+const reloadHtml = config => partial({ plugin: reloadHtmlPlugin }, config);
 
 const base = {
-  entry: {index: `${paths.src}/index.js`},
+  entry: { index: `${paths.src}/index.js` },
   output: {
     path: paths.dist,
-    filename: '[name].js'
+    filename: '[name].js',
   },
 };
 
-export default ({ NODE_ENV }) => {
+export default (env = {}, argv = { mode: 'development' }) => {
+  const {} = env;
+  const { mode } = argv;
+
   const common = [
-    htmlWebpack({
-      title: "CSS Playground",
-      template: `${paths.src}/index.ejs`,
-      NODE_ENV
-    }), 
-    postCSS({ filename: 'style.css', }),
+    htmlWebpack(
+      {
+        title: 'CSS Playground',
+        template: `${paths.src}/index.ejs`,
+      },
+      mode,
+    ),
+    postCSS({ filename: 'style.css', localIdentName: '[local]' }, mode),
   ];
 
   const development = [
@@ -54,17 +59,15 @@ export default ({ NODE_ENV }) => {
       watchContentBase: true,
       before(_, s) {
         server = s;
-      }
+      },
     }),
   ];
 
   const production = [];
-
   const config =
-    NODE_ENV === 'production'
+    mode === 'production'
       ? [...common, ...production]
       : [...common, ...development];
-
 
   return webpackConfiguration(base, config);
 };
