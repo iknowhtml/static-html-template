@@ -1,73 +1,92 @@
-import paths from './webpack/paths';
+import path from 'path';
+import MiniCssExtractPlugin from 'mini-css-extract-plugin';
+import { HotModuleReplacementPlugin } from 'webpack';
+import HtmlWebpackPlugin from 'html-webpack-plugin';
+import TerserJSPlugin from 'terser-webpack-plugin';
+import OptimizeCssAssetsWebpackPlugin from 'optimize-css-assets-webpack-plugin';
 
-import partial from './webpack/partials/partial';
-
-import { postCSS } from './webpack/partials/modules';
-import { devServer } from './webpack/partials/configurations';
-import { htmlWebpack, hotModuleReplacement } from './webpack/partials/plugins';
-
-import webpackConfiguration from './webpack/webpackConfiguration';
-
-let server;
-
-function reloadHtmlPlugin() {
-  const cache = {};
-  const plugin = { name: 'CustomHtmlReloadPlugin' };
-  this.hooks.compilation.tap(plugin, compilation => {
-    compilation.hooks.htmlWebpackPluginAfterEmit.tap(plugin, data => {
-      const orig = cache[data.outputName];
-      const html = data.html.source();
-      // plugin seems to emit on any unrelated change?
-      if (orig && orig !== html) {
-        server.sockWrite(server.sockets, 'content-changed');
-      }
-      cache[data.outputName] = html;
-    });
-  });
-}
-
-const reloadHtml = config => partial({ plugin: reloadHtmlPlugin }, config);
-
-const base = {
-  entry: { index: `${paths.src}/index.js` },
+// Two parameters are passed in at bundle time, env & argv. argv contains all flags passed into webpack, including mode.
+const webpackConfiguration = (env, argv) => ({
+  entry: path.resolve('src', 'index.js'),
   output: {
-    path: paths.dist,
-    filename: '[name].js',
+    path: path.resolve('dist'),
+    filename: 'index.js',
   },
-};
-
-export default (env = {}, argv = { mode: 'development' }) => {
-  const {} = env;
-  const { mode } = argv;
-
-  const common = [
-    htmlWebpack(
+  // Configures Loaders
+  module: {
+    rules: [
       {
-        title: 'CSS Playground',
-        template: `${paths.src}/index.ejs`,
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+        },
       },
-      mode,
-    ),
-    postCSS({ filename: 'style.css', localIdentName: '[local]' }, mode),
-  ];
-
-  const development = [
-    hotModuleReplacement(),
-    reloadHtml,
-    devServer({
-      contentBase: paths.dist,
-      watchContentBase: true,
-      before(_, s) {
-        server = s;
+      {
+        test: /.css$/,
+        use: [
+          {
+            loader: MiniCssExtractPlugin.loader,
+            options: {
+              hmr: process.env.NODE_ENV === 'development',
+            },
+          },
+          'css-loader',
+          'postcss-loader',
+        ],
       },
+    ],
+  },
+  // Configures Plugins
+  plugins: [
+    new HotModuleReplacementPlugin(),
+    new HtmlWebpackPlugin({
+      title: '',
+      filename: 'index.html',
+      template: path.resolve('src', 'index.ejs'),
+      minify:
+        process.env.NODE_ENV === 'production'
+          ? {
+              collapseWhitespace: true,
+              removeComments: true,
+              removeRedundantAttributes: true,
+              removeScriptTypeAttributes: true,
+              removeStyleLinkTypeAttributes: true,
+              useShortDoctype: true,
+            }
+          : false,
+      hash: process.env.NODE_ENV === 'production',
+      //Prevents automatic injection of CSS & HTML into template.
+      inject: false,
     }),
-  ];
+    new MiniCssExtractPlugin({
+      filename: 'style.css',
+    }),
+  ],
+  // Configures Optimizations
+  optimization:
+    process.env.NODE_ENV === 'production'
+      ? {
+          minimizer: [
+            new TerserJSPlugin({}),
+            new OptimizeCssAssetsWebpackPlugin({}),
+          ],
+        }
+      : {},
+  //Configures Webpack DevServer
+  devServer: {
+    port: 8080,
+    // Enables webpack's Hot Module Replacement feature.
+    hot: true,
+    // Shows a full-screen overlay in the browser when there are compiler errors or warnings. Disabled by default.
+    overlay: {
+      warnings: true,
+      errors: true,
+    },
+    // Sets and watches the content base so that dev server will reload page on HTML changes
+    contentBase: path.resolve('src'),
+    watchContentBase: true,
+  },
+});
 
-  const production = [];
-  const config =
-    mode === 'production'
-      ? [...common, ...production]
-      : [...common, ...development];
-
-  return webpackConfiguration(base, config);
-};
+export default webpackConfiguration;
