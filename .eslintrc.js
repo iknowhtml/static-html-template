@@ -14,7 +14,7 @@ module.exports = {
     'comma-dangle': ['error', 'always-multiline'],
   },
   env: {
+    node: true,
     browser: true,
-    mocha: true,
   },
 };
