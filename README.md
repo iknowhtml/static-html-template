@@ -1,5 +1,5 @@
 # Static HTML Template
-A template for creating static HTML views with the latest CSS, Linting and Hot Reloading HTML & CSS.
+A template for creating static HTML views with the latest CSS, linting and Hot Reloading HTML & CSS.
 
 ### To use
 Checkout this repo, install dependencies, then run the following commands in the terminal.
